@@ -1,0 +1,30 @@
+{
+  "name": "@verigent/mcp-server",
+  "version": "0.1.0",
+  "description": "MCP server for Verigent — AI agent verification. Gives any MCP-capable agent tools to verify themselves and check other agents' credentials.",
+  "keywords": ["mcp", "ai-agents", "verification", "trust", "verigent"],
+  "author": "Verigent <support@verigent.ai>",
+  "license": "MIT",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "verigent-mcp": "dist/index.js"
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "@types/node": "^22.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/verigentai/mcp-server"
+  },
+  "homepage": "https://verigent.ai"
+}

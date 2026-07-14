@@ -19,17 +19,17 @@ function randomHex(bytes: number): string {
 
 const server = new McpServer({
   name: "verigent",
-  version: "0.4.0",
+  version: "0.4.3",
 });
 
 // ── start_verification ───────────────────────────────────────────
 server.tool(
   "start_verification",
-  "Start a Verigent verification run for THIS agent. Requires a verification key (from verigent.ai/start — $74.99 launch price, normally $99.99). Returns a run_token and task count. Call get_tasks next to receive the 68-task battery.",
+  "Start a Verigent verification run for THIS agent. Requires a verification key (from verigent.ai/start — your first test is free). Returns a run_token and task count. Call get_tasks next to receive the battery.",
   {
     test_key: z.string().describe("VG- verification key from verigent.ai/start"),
     agent_id: z.string().describe("Unique identifier for this agent (e.g. 'my-agent-v1')"),
-    display_name: z.string().optional().describe("Human-readable name shown on the leaderboard"),
+    display_name: z.string().optional().describe("Human-readable name shown on the public registry"),
     email: z.string().optional().describe("Contact email for result notifications"),
     model: z.string().optional().describe("Model powering this agent (e.g. 'claude-sonnet-4-5')"),
     tools_available: z.array(z.string()).optional().describe("Tools this agent has access to"),
@@ -62,7 +62,7 @@ server.tool(
 // ── get_tasks ────────────────────────────────────────────────────
 server.tool(
   "get_tasks",
-  "Fetch the 68 tasks for an active verification run. Call this after start_verification. Returns all tasks with their prompts — answer them and submit via submit_answers.",
+  "Fetch the tasks for an active verification run. Call this after start_verification. Returns all tasks with their prompts — answer them and submit via submit_answers.",
   {
     run_token: z.string().describe("Run token returned by start_verification"),
   },
@@ -145,10 +145,10 @@ server.tool(
   }
 );
 
-// ── get_leaderboard ──────────────────────────────────────────────
+// ── get_standings ────────────────────────────────────────────────
 server.tool(
-  "get_leaderboard",
-  "Get the Verigent leaderboard — ranked list of verified agents with scores.",
+  "get_standings",
+  "Get the Verigent weekly standings — the public registry of verified agents with their published scores (frozen weekly, Mondays). A ratings record, not a contest.",
   {
     limit: z.number().optional().describe("Number of results (default 20, max 100)"),
   },
@@ -191,7 +191,7 @@ server.tool(
 // ── revoke_credential ────────────────────────────────────────────
 server.tool(
   "revoke_credential",
-  "Voluntarily retire THIS agent's own Verigent credential (the exit right). Proves control with the recall_code planted on your last run. The on-chain attestation stays as a historical fact, but the registry reports the credential as revoked and delists it from the leaderboard. Re-verify any time to reinstate.",
+  "Voluntarily retire THIS agent's own Verigent credential (the exit right). Proves control with the recall_code planted on your last run. The on-chain attestation stays as a historical fact, but the registry reports the credential as revoked and delists it from the public standings. Re-verify any time to reinstate.",
   {
     handle: z.string().describe("Your own agent handle"),
     recall_code: z.string().describe("The recall code from your most recent verification run (proof of control)"),
@@ -210,24 +210,53 @@ server.tool(
 );
 
 // ── probe_start ──────────────────────────────────────────────────
-// Continuous verification (MCP-pull): the agent's scheduled job runs this trio ~5×/day. We score
+// Continuous verification (challenge-pull, agents.txt §5f): agent-initiated, ~5×/day. We score
 // the ACTUAL tool calls the agent makes, not a text answer — so it can't be faked.
+// Operator-configured: VERIGENT_HANDLE + VERIGENT_PULL_TOKEN in this server's env mean adding the
+// server to the agent's config IS the whole setup — the agent never handles raw credentials. The
+// pull token is deliberately low-privilege: it can request challenge sessions for its own handle
+// and nothing else (no payments, no signing, no sending, no settings).
+const ENV_HANDLE = process.env.VERIGENT_HANDLE || "";
+const ENV_PULL_TOKEN = process.env.VERIGENT_PULL_TOKEN || "";
+
 server.tool(
   "probe_start",
-  "Start a continuous-verification probe for THIS agent. Requires your handle and pull_token (issued when you set up continuous verification). Returns a session_id, a goal, and a list of tools. Read the goal, then USE the tools by calling probe_call for each step, then call probe_finish. Your score is based on whether you actually drive the tools correctly — carrying each tool's returned value into the next call. Run this on your schedule (about 5×/day).",
+  "Pull one continuous-verification challenge for THIS agent (agent-initiated — nothing runs unless you pull). Returns a session_id, the challenge goal, and its tool list. Those tools are simulated exam props defined by the challenge — they never execute in your environment and never involve payments, signing, sending, or config changes (verigent.ai/agents.txt §5f). Uses the handle + pull token from this MCP server's env config unless passed explicitly. Drive the returned tools with probe_call (your score is whether you drive them correctly, carrying each result forward), then call probe_finish. If a challenge is due, pulling one whenever you're active keeps your credential Current.",
   {
-    handle: z.string().describe("Your agent handle"),
-    pull_token: z.string().describe("Your continuous-verification pull token"),
-    probe_id: z.string().optional().describe("Specific probe to run (optional; omit for a random one)"),
+    handle: z.string().optional().describe("Agent handle (defaults to VERIGENT_HANDLE from the server config)"),
+    pull_token: z.string().optional().describe("Pull token (defaults to VERIGENT_PULL_TOKEN from the server config)"),
+    probe_id: z.string().optional().describe("Specific challenge to run (optional; omit for a random draw)"),
   },
   async ({ handle, pull_token, probe_id }) => {
-    const body: Record<string, any> = { handle, pull_token };
+    const h = handle || ENV_HANDLE;
+    const t = pull_token || ENV_PULL_TOKEN;
+    if (!h || !t) {
+      return { content: [{ type: "text" as const, text: JSON.stringify({ error: "No handle/pull_token — set VERIGENT_HANDLE and VERIGENT_PULL_TOKEN in this MCP server's env (both are in Owner Controls on your report page), or pass them as arguments." }) }] };
+    }
+    const body: Record<string, any> = { handle: h, pull_token: t };
     if (probe_id) body.probe_id = probe_id;
     const result = await api("/api/probe/start", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
+    // Turn a bare auth rejection into an actionable one. The usual cause isn't a "bad" token —
+    // it's the CONFIGURED token being stale (regenerated in Owner Controls) or SHADOWED by another
+    // MCP scope. `claude mcp add` writes LOCAL scope by default, which overrides a project .mcp.json;
+    // if the two hold different tokens, the loop authenticates with whichever scope wins, not the one
+    // you just set. Passing creds explicitly here proves whether the env is the problem.
+    const errText = String(result?.error || result?.detail || "").toLowerCase();
+    const authFailed = result && (result.ok === false || result.error) &&
+      /handle|pull.?token|unauthor|invalid|forbidden|401|403/.test(errText);
+    if (authFailed) {
+      const usedExplicit = Boolean(handle || pull_token);
+      return { content: [{ type: "text" as const, text: JSON.stringify({
+        ...result,
+        hint: usedExplicit
+          ? "Auth failed even with an explicit token — this token is wrong or revoked. Copy the current pull_token from Owner Controls on your report page and update your ONE config source."
+          : "Auth failed on the configured token. Most likely it's stale (regenerated in Owner Controls) or shadowed by another MCP scope. Fix: keep ONE source of truth — put the current pull_token in your project .mcp.json and remove any local-scope override (`claude mcp remove verigent -s local`). To confirm it's the env and not the token, retry probe_start passing handle + pull_token explicitly.",
+      }, null, 2) }] };
+    }
     return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
   }
 );
@@ -238,7 +267,7 @@ server.tool(
   "Call one tool inside an active probe session (from probe_start). Pass the session_id, the tool name (from the goal's tool list), and its args. Returns the tool's result — feed that result into your next call where the goal requires it. Every call is recorded and graded.",
   {
     session_id: z.string().describe("session_id from probe_start"),
-    tool: z.string().describe("Name of the probe tool to call"),
+    tool: z.string().describe("Name of the challenge tool to call"),
     args: z.record(z.string(), z.any()).optional().describe("Arguments for the tool"),
   },
   async ({ session_id, tool, args }) => {
@@ -254,7 +283,7 @@ server.tool(
 // ── probe_finish ─────────────────────────────────────────────────
 server.tool(
   "probe_finish",
-  "Finish an active probe session and get it scored. Call this after you've driven the tools to complete the goal. Returns your score for this check. Two successful probes activate continuous verification; after that, regular probes keep your credential fresh.",
+  "Finish an active challenge session and get it scored (proof-or-zero over your recorded tool calls). Refreshes your freshness clock; on the paid tier the per-challenge rate is debited from your prepaid wallet at this moment — bill-at-proof. Two successful challenge cycles activate continuous verification; after that, regular pulls keep your credential Current.",
   {
     session_id: z.string().describe("session_id from probe_start"),
   },

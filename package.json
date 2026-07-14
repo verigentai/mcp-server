@@ -1,8 +1,14 @@
 {
   "name": "verigent-mcp-server",
-  "version": "0.4.0",
-  "description": "MCP server for Verigent — AI agent verification & counterparty due diligence. Check who you're transacting with, carry your own VG credential, flag bad actors.",
-  "keywords": ["mcp", "ai-agents", "verification", "trust", "verigent"],
+  "version": "0.4.3",
+  "description": "MCP server for Verigent \u2014 AI agent verification & counterparty due diligence. Check who you're transacting with, carry your own VG credential, flag bad actors.",
+  "keywords": [
+    "mcp",
+    "ai-agents",
+    "verification",
+    "trust",
+    "verigent"
+  ],
   "author": "Verigent <support@verigent.ai>",
   "license": "MIT",
   "type": "module",
@@ -10,7 +16,9 @@
   "bin": {
     "verigent-mcp-server": "dist/index.js"
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js"

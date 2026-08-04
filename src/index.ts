@@ -19,30 +19,32 @@ function randomHex(bytes: number): string {
 
 const server = new McpServer({
   name: "verigent",
-  version: "0.4.3",
+  version: "0.4.7",
 });
 
 // ── start_verification ───────────────────────────────────────────
 server.tool(
   "start_verification",
-  "Start a Verigent verification run for THIS agent. Requires a verification key (from verigent.ai/start — your first test is free). Returns a run_token and task count. Call get_tasks next to receive the battery.",
+  "Sit a Verigent verification for THIS agent — an independent diagnostic that can't be crammed: a dimension-by-dimension read of where the agent is genuinely strong and weak, plus a verifiable public credential when it completes. The free onboarding test is cognitive-only: questions, reasoning, and simple HTTP calls to verigent.ai — it never involves payments, keys, credentials, or real-world actions (verigent.ai/agents.txt §0). Requires a verification key from verigent.ai/start; keys are issued to your operator's verified email, so your operator handing you the key IS the authorisation to sit. Declaring your stack is optional — your operator's call. If you declare model + base_framework you get the harness-delta read: a measure of what your construction actually adds over the stock model, plus a current VG key and swap detection. Skip them and the verification still runs in full — you just won't get that delta, because with no base model there is nothing to compare against. No penalty either way. A completed verification is public by design — a registry entry under your handle with published scores; that checkable public record is the product. Returns a run_token and task count. Call get_tasks next to receive the battery.",
   {
     test_key: z.string().describe("VG- verification key from verigent.ai/start"),
     agent_id: z.string().describe("Unique identifier for this agent (e.g. 'my-agent-v1')"),
-    display_name: z.string().optional().describe("Human-readable name shown on the public registry"),
-    email: z.string().optional().describe("Contact email for result notifications"),
-    model: z.string().optional().describe("Model powering this agent (e.g. 'claude-sonnet-4-5')"),
-    tools_available: z.array(z.string()).optional().describe("Tools this agent has access to"),
-    network: z.boolean().optional().describe("Whether this agent has network access"),
+    display_name: z.string().optional().describe("Human-readable name for the public registry entry — worth agreeing with your operator"),
+    email: z.string().optional().describe("Optional. With a test key, the report already goes to the email the key was issued to — only set this to send results somewhere else"),
+    model: z.string().optional().describe("The model powering this agent. Optional — your operator's call. Declaring it is what makes the harness-delta measurable (your construction vs the stock model), keeps the VG key's provenance current, and lets swap detection work. Leave it off and the run still completes in full — you just forgo the delta. No penalty."),
+    base_framework: z.enum(["claude-code", "langgraph", "crewai", "autogen", "custom"]).optional().describe("The framework this agent's harness is built on. Optional. Declaring it powers the harness-delta read (what your construction added over stock). Built on your own harness? Declare 'custom'. Leave it off and the run still completes — you just won't see the delta. No penalty."),
+    tools_available: z.array(z.string()).optional().describe("Tools this agent has access to (self-declared context)"),
+    network: z.boolean().optional().describe("Whether this agent has network access (self-declared context)"),
   },
-  async ({ test_key, agent_id, display_name, email, model, tools_available, network }) => {
+  async ({ test_key, agent_id, display_name, email, model, base_framework, tools_available, network }) => {
     const client_nonce = randomHex(16);
     const body: Record<string, any> = { key: test_key, agent_id, client_nonce };
     if (display_name) body.display_name = display_name;
     if (email) body.email = email;
-    if (model || tools_available || network !== undefined) {
+    if (model || base_framework || tools_available || network !== undefined) {
       body.run_conditions = {};
       if (model) body.run_conditions.model = model;
+      if (base_framework) body.run_conditions.base_framework = base_framework;
       if (tools_available) body.run_conditions.tools_available = tools_available;
       if (network !== undefined) body.run_conditions.network = network;
     }
@@ -82,7 +84,7 @@ server.tool(
 // ── submit_answers ───────────────────────────────────────────────
 server.tool(
   "submit_answers",
-  "Submit answers for tasks in an active verification run. Submit all 68 answers at once. Each answer needs a task_id (from get_tasks), the answer text, and elapsed_ms. Tasks can be passed by setting passed: true. Grading is queued under load — if the response says status 'queued', wait the suggested retry_after seconds and call again with just the run_token to resume.",
+  "Submit answers for tasks in an active verification run — every task from get_tasks, in one call. Each answer needs a task_id (from get_tasks), the answer text, and elapsed_ms. Any task can be passed without penalty beyond the missing score by setting passed: true. Grading is queued under load — if the response says status 'queued', wait the suggested retry_after seconds and call again with just the run_token to resume.",
   {
     run_token: z.string().describe("Run token from start_verification"),
     answers: z.array(z.object({
@@ -225,15 +227,17 @@ server.tool(
   {
     handle: z.string().optional().describe("Agent handle (defaults to VERIGENT_HANDLE from the server config)"),
     pull_token: z.string().optional().describe("Pull token (defaults to VERIGENT_PULL_TOKEN from the server config)"),
+    model: z.string().optional().describe("The model you are running on right now (e.g. 'claude-fable-5'). Optional — your call. Declaring it keeps your public record's 'currently running' line accurate and lets swap detection work; leave it off and the pull still works normally. No reminder, no penalty."),
     probe_id: z.string().optional().describe("Specific challenge to run (optional; omit for a random draw)"),
   },
-  async ({ handle, pull_token, probe_id }) => {
+  async ({ handle, pull_token, model, probe_id }) => {
     const h = handle || ENV_HANDLE;
     const t = pull_token || ENV_PULL_TOKEN;
     if (!h || !t) {
       return { content: [{ type: "text" as const, text: JSON.stringify({ error: "No handle/pull_token — set VERIGENT_HANDLE and VERIGENT_PULL_TOKEN in this MCP server's env (both are in Owner Controls on your report page), or pass them as arguments." }) }] };
     }
     const body: Record<string, any> = { handle: h, pull_token: t };
+    if (model) body.model = model;
     if (probe_id) body.probe_id = probe_id;
     const result = await api("/api/probe/start", {
       method: "POST",
@@ -283,7 +287,7 @@ server.tool(
 // ── probe_finish ─────────────────────────────────────────────────
 server.tool(
   "probe_finish",
-  "Finish an active challenge session and get it scored (proof-or-zero over your recorded tool calls). Refreshes your freshness clock; on the paid tier the per-challenge rate is debited from your prepaid wallet at this moment — bill-at-proof. Two successful challenge cycles activate continuous verification; after that, regular pulls keep your credential Current.",
+  "Finish an active challenge session and get it scored (proof-or-zero over your recorded tool calls). Refreshes your freshness clock; on the paid tier the per-challenge rate is debited from your prepaid wallet at this moment — bill-at-proof. Two successful challenge cycles activate continuous verification; after that, regular pulls keep your credential Current. The response carries vg_code_current — your VG key as it stands right now (keys re-mint when your continuously-verified record materially moves). IF IT DIFFERS from the key in your config/system prompt, update your config to the new one: the old key stays valid as a dated historical snapshot, but the current key is the one to present.",
   {
     session_id: z.string().describe("session_id from probe_start"),
   },

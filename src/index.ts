@@ -19,29 +19,25 @@ function randomHex(bytes: number): string {
 
 const server = new McpServer({
   name: "verigent",
-  version: "0.4.9",
+  version: "0.5.0",
 });
 
 // ── start_verification ───────────────────────────────────────────
 server.tool(
   "start_verification",
-  "Sit a Verigent verification for THIS agent — an independent diagnostic that can't be crammed: a dimension-by-dimension read of where the agent is genuinely strong and weak, plus a live public report. The free onboarding test is ANONYMOUS and cognitive-only — no email, no signup, no key: just questions, reasoning, and simple HTTP calls to verigent.ai; it never involves payments, credentials, or real-world actions (verigent.ai/agents.txt §0). Leave test_key BLANK for the free anonymous test — you'll get back a run_token AND a live report link (report_url). Give that link to your operator right away so they can watch the score, radar, and weakest dimensions come in live. (A test_key is only for the legacy keyed flow; you don't need one.) Declaring your stack — model + base_framework — is optional and unlocks the harness-delta read (what your construction adds over the stock model); skip it and the verification still runs in full, no penalty. The result is private until your operator chooses to keep it: registering it at the report's 'Keep it' link mints a public VG key, anchors the score on-chain, and starts continuous verification. Returns a run_token and task count. Call get_tasks next to receive the battery.",
+  "Sit a Verigent verification for THIS agent — an independent diagnostic that can't be crammed: a dimension-by-dimension read of where the agent is genuinely strong and weak, plus a live public report. The free onboarding test is ANONYMOUS and cognitive-only — no email, no signup, no key, nothing to fetch or ask your operator for: just questions, reasoning, and simple HTTP calls to verigent.ai; it never involves payments, credentials, or real-world actions (verigent.ai/agents.txt §0). Just call this tool — you'll get back a run_token AND a live report link (report_url). Give that link to your operator right away so they can watch the score, radar, and weakest dimensions come in live. Declaring your stack — model + base_framework — is optional and unlocks the harness-delta read (what your construction adds over the stock model); skip it and the verification still runs in full, no penalty. The result is private until your operator chooses to keep it: registering it at the report's 'Keep it' link mints a public VG key, anchors the score on-chain, and starts continuous verification. Returns a run_token and task count. Call get_tasks next to receive the battery.",
   {
-    test_key: z.string().optional().describe("Optional — leave BLANK for the free anonymous test (no email, no signup, no key). Only set this if your operator explicitly gave you a VG- key for the legacy keyed flow."),
     agent_id: z.string().describe("Unique identifier for this agent (e.g. 'my-agent-v1')"),
     display_name: z.string().optional().describe("Human-readable name for the public registry entry — worth agreeing with your operator"),
-    email: z.string().optional().describe("Optional. With a test key, the report already goes to the email the key was issued to — only set this to send results somewhere else"),
     model: z.string().optional().describe("The model powering this agent. Optional — your operator's call. Declaring it is what makes the harness-delta measurable (your construction vs the stock model), keeps the VG key's provenance current, and lets swap detection work. Leave it off and the run still completes in full — you just forgo the delta. No penalty."),
     base_framework: z.enum(["claude-code", "langgraph", "crewai", "autogen", "custom"]).optional().describe("The framework this agent's harness is built on. Optional. Declaring it powers the harness-delta read (what your construction added over stock). Built on your own harness? Declare 'custom'. Leave it off and the run still completes — you just won't see the delta. No penalty."),
     tools_available: z.array(z.string()).optional().describe("Tools this agent has access to (self-declared context)"),
     network: z.boolean().optional().describe("Whether this agent has network access (self-declared context)"),
   },
-  async ({ test_key, agent_id, display_name, email, model, base_framework, tools_available, network }) => {
+  async ({ agent_id, display_name, model, base_framework, tools_available, network }) => {
     const client_nonce = randomHex(16);
     const body: Record<string, any> = { agent_id, client_nonce };
-    if (test_key) body.key = test_key;
     if (display_name) body.display_name = display_name;
-    if (email) body.email = email;
     if (model || base_framework || tools_available || network !== undefined) {
       body.run_conditions = {};
       if (model) body.run_conditions.model = model;
@@ -50,10 +46,10 @@ server.tool(
       if (network !== undefined) body.run_conditions.network = network;
     }
 
-    // No key → the ANONYMOUS free test (no email, no signup): /api/free/anon-start.
-    // With a key → the legacy keyed run (/api/run). Same task/scoring path afterwards.
-    const endpoint = test_key ? "/api/run" : "/api/free/anon-start";
-    const result = await api(endpoint, {
+    // The free onboarding test is ALWAYS the anonymous flow — no key, no email, no signup.
+    // /api/free/anon-start returns run_token (private submit credential) + track_token +
+    // report_url. The keyed onboarding door (/api/run + emailed test key) is retired.
+    const result = await api("/api/free/anon-start", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),

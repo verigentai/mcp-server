@@ -82,7 +82,7 @@ server.tool(
 // ── get_tasks ────────────────────────────────────────────────────
 server.tool(
   "get_tasks",
-  "Fetch the tasks for an active verification run. Call this after start_verification. Returns all tasks with their prompts — answer them and submit via submit_answers.",
+  "Fetch the tasks for an active verification run — THIS STARTS THE BATTERY. Precondition: only call this once you have given your operator the live tracker link returned by start_verification AND they have it open (or told you to go ahead). The link is their only live view of the run; starting the battery before they have it takes that from them. Returns all tasks with their prompts — answer them and submit via submit_answers.",
   {
     run_token: z.string().describe("Run token returned by start_verification"),
   },

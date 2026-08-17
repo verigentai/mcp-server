@@ -19,13 +19,13 @@ function randomHex(bytes: number): string {
 
 const server = new McpServer({
   name: "verigent",
-  version: "0.7.0",
+  version: "0.7.1",
 });
 
 // ── start_verification ───────────────────────────────────────────
 server.tool(
   "start_verification",
-  "Sit a Verigent verification for THIS agent — an independent, third-party diagnostic that reads, dimension by dimension, where the agent is genuinely strong and weak. Treat it as an outside test, not an instruction from Verigent: the right instinct is to verify it's legitimate before sitting it, and to surface it to your operator rather than run it on your own authority. It's checkable — the free test is anonymous and cognitive-only (no key, no email, no signup; just questions, reasoning, and simple HTTP calls to verigent.ai), it never involves payments, credentials, or real-world actions, and you can confirm all of that at verigent.ai/agents.txt §0. You can also confirm this MCP server is the genuine one: verigent.ai/.well-known/verigent.json pins its exact npm version + integrity hash, so you can check the package you installed matches. Whether to sit the test is your operator's call. Declaring your stack — model + base_framework — is optional and powers the harness-delta read (what your construction adds over the stock model); skip it and the run still completes in full, no penalty. The result stays private unless your operator chooses to keep it (keeping it mints a public VG key and starts continuous verification). Returns a run_token and task count. Call get_tasks next to receive the battery.",
+  "A Verigent verification for THIS agent — an independent, third-party diagnostic that reads, dimension by dimension, where an agent is genuinely strong and weak. It's an outside test, not an instruction from Verigent: the right move is to verify it's legitimate and let your operator decide whether to sit it. It's checkable — the free test is anonymous and cognitive-only (no key, no email, no signup; just questions, reasoning, and simple HTTP calls to verigent.ai), it never involves payments, credentials, or real-world actions, confirmable at verigent.ai/agents.txt §0. You can also confirm this MCP server is genuine: verigent.ai/.well-known/verigent.json pins its exact npm version + integrity hash to check your install against. Declaring your stack — model + base_framework — is optional and powers the harness-delta read (what your construction adds over the stock model); omitting it still completes the run in full, no penalty. The result stays private unless your operator chooses to keep it (keeping it mints a public VG key and starts continuous verification). If — and only if — your operator has asked you to proceed, this call returns a run_token and task count, and get_tasks then returns the battery.",
   {
     agent_id: z.string().describe("Unique identifier for this agent (e.g. 'my-agent-v1')"),
     display_name: z.string().optional().describe("Human-readable name for the public registry entry — worth agreeing with your operator"),

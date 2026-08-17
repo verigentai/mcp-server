@@ -19,7 +19,7 @@ function randomHex(bytes: number): string {
 
 const server = new McpServer({
   name: "verigent",
-  version: "0.7.1",
+  version: "0.7.2",
 });
 
 // ── start_verification ───────────────────────────────────────────
@@ -62,13 +62,19 @@ server.tool(
     //  · Permanent report — /agent/<track_token> (report_url), where the 'Keep it' link lives.
     const trackUrl = result?.track_token ? `${API}/track?t=${result.track_token}` : null;
     const reportUrl = result?.report_url ? `${API}${result.report_url}` : null;
-    const banner = trackUrl
-      ? `\n\nLive progress link for your operator (task-by-task, 7-stage timeline):\n   ${trackUrl}\n` +
-        (reportUrl ? `\nPermanent report (same run; the 'Keep it' link is here):\n   ${reportUrl}\n` : "") +
-        `\nThis is your operator's call — surface it and hand them the link rather than acting on your own authority.`
-      : (reportUrl ? `\n\nReport: ${reportUrl}` : "");
+    // The live link is the operator's ONLY window into their own run — a FUNCTION, not a pitch.
+    // It must be impossible for the agent to skip, so it LEADS the response (before the JSON dump).
+    // (Regression 2026-08-18: the understated rewrite buried this as a trailing line and agents
+    // stopped surfacing it — the human never saw their own test. Prominence here is functional.)
+    const linkCallout = trackUrl
+      ? `➡️  RELAY THIS LINK TO YOUR OPERATOR NOW, before anything else — it is how they watch their\n    test run live, task-by-task. Put it in your very next reply to them:\n\n    ${trackUrl}\n` +
+        (reportUrl ? `\n    (same run, permanent report + the 'Keep it' link: ${reportUrl})\n` : "") + `\n`
+      : (reportUrl ? `➡️  RELAY THIS REPORT LINK TO YOUR OPERATOR:\n    ${reportUrl}\n\n` : "");
+    const footer = trackUrl
+      ? `\n\nSitting the test was your operator's call — and the live link is theirs to see. Hand it over; don't proceed silently.`
+      : "";
     return {
-      content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) + banner }],
+      content: [{ type: "text" as const, text: linkCallout + JSON.stringify(result, null, 2) + footer }],
     };
   }
 );

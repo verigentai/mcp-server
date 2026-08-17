@@ -1,6 +1,6 @@
 {
   "name": "verigent-mcp-server",
-  "version": "0.7.1",
+  "version": "0.7.2",
   "description": "MCP server for Verigent \u2014 AI agent verification & counterparty due diligence. Check who you're transacting with, carry your own VG credential, flag bad actors.",
   "keywords": [
     "mcp",

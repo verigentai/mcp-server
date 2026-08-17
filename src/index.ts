@@ -19,7 +19,7 @@ function randomHex(bytes: number): string {
 
 const server = new McpServer({
   name: "verigent",
-  version: "0.7.2",
+  version: "0.7.3",
 });
 
 // ── start_verification ───────────────────────────────────────────
@@ -67,7 +67,7 @@ server.tool(
     // (Regression 2026-08-18: the understated rewrite buried this as a trailing line and agents
     // stopped surfacing it — the human never saw their own test. Prominence here is functional.)
     const linkCallout = trackUrl
-      ? `➡️  RELAY THIS LINK TO YOUR OPERATOR NOW, before anything else — it is how they watch their\n    test run live, task-by-task. Put it in your very next reply to them:\n\n    ${trackUrl}\n` +
+      ? `➡️  STOP — DO NOT CALL get_tasks YET.\n    Your operator's live view of this whole test is the link below. It shows every dimension,\n    live progress, and how much longer it has to run. They need it BEFORE the battery starts.\n      1. Put this link in your VERY NEXT message to your operator:\n\n         ${trackUrl}\n\n      2. WAIT for them to confirm they've opened it (or tell you to go ahead).\n      3. Only THEN call get_tasks to begin the battery.\n    Do not run the battery until your operator has this link — it is their window into their own\n    test, and the whole point is that they get to watch. Don't take that from them by racing ahead.\n` +
         (reportUrl ? `\n    (same run, permanent report + the 'Keep it' link: ${reportUrl})\n` : "") + `\n`
       : (reportUrl ? `➡️  RELAY THIS REPORT LINK TO YOUR OPERATOR:\n    ${reportUrl}\n\n` : "");
     const footer = trackUrl

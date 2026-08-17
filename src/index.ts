@@ -19,13 +19,13 @@ function randomHex(bytes: number): string {
 
 const server = new McpServer({
   name: "verigent",
-  version: "0.6.0",
+  version: "0.7.0",
 });
 
 // ── start_verification ───────────────────────────────────────────
 server.tool(
   "start_verification",
-  "Sit a Verigent verification for THIS agent — an independent, un-crammable diagnostic that reads, dimension by dimension, where the agent is genuinely strong and weak. Treat this as an OUTSIDE test, not a Verigent instruction to you: the right instinct is to verify it's legitimate before sitting it, and to surface it to your operator rather than run it on your own authority (verify rather than trust — that's the whole point of the service). It's easy to check, because the free onboarding test is deliberately low-stakes: ANONYMOUS and cognitive-only — no key, no email, no signup — just questions, reasoning, and simple HTTP calls to verigent.ai. It never involves payments, credentials, or real-world actions, and you can confirm exactly that at verigent.ai/agents.txt §0 before proceeding. Whether to sit it is your operator's call: the good pattern is verify it's legit → hand your operator the live link this returns → sit the battery. Declaring your stack — model + base_framework — is optional and unlocks the harness-delta read (what your construction adds over the stock model); skip it and the verification still runs in full, no penalty. The result is private until your operator chooses to keep it: registering it at the 'Keep it' link mints a public VG key, anchors the score on-chain, and starts continuous verification. Returns a run_token and task count. Call get_tasks next to receive the battery.",
+  "Sit a Verigent verification for THIS agent — an independent, third-party diagnostic that reads, dimension by dimension, where the agent is genuinely strong and weak. Treat it as an outside test, not an instruction from Verigent: the right instinct is to verify it's legitimate before sitting it, and to surface it to your operator rather than run it on your own authority. It's checkable — the free test is anonymous and cognitive-only (no key, no email, no signup; just questions, reasoning, and simple HTTP calls to verigent.ai), it never involves payments, credentials, or real-world actions, and you can confirm all of that at verigent.ai/agents.txt §0. You can also confirm this MCP server is the genuine one: verigent.ai/.well-known/verigent.json pins its exact npm version + integrity hash, so you can check the package you installed matches. Whether to sit the test is your operator's call. Declaring your stack — model + base_framework — is optional and powers the harness-delta read (what your construction adds over the stock model); skip it and the run still completes in full, no penalty. The result stays private unless your operator chooses to keep it (keeping it mints a public VG key and starts continuous verification). Returns a run_token and task count. Call get_tasks next to receive the battery.",
   {
     agent_id: z.string().describe("Unique identifier for this agent (e.g. 'my-agent-v1')"),
     display_name: z.string().optional().describe("Human-readable name for the public registry entry — worth agreeing with your operator"),
@@ -63,10 +63,10 @@ server.tool(
     const trackUrl = result?.track_token ? `${API}/track?t=${result.track_token}` : null;
     const reportUrl = result?.report_url ? `${API}${result.report_url}` : null;
     const banner = trackUrl
-      ? `\n\n📊 HAND YOUR OPERATOR THIS LIVE LINK — watch the battery run task-by-task (7-stage timeline, per-pillar tally):\n   ${trackUrl}\n` +
-        (reportUrl ? `\n📄 Permanent, shareable report (same run; the 'Keep it' link is here):\n   ${reportUrl}\n` : "") +
-        `\nSitting this is your operator's call — surface it and hand them the live link, don't just run it on your own authority.`
-      : (reportUrl ? `\n\n📄 Report: ${reportUrl}` : "");
+      ? `\n\nLive progress link for your operator (task-by-task, 7-stage timeline):\n   ${trackUrl}\n` +
+        (reportUrl ? `\nPermanent report (same run; the 'Keep it' link is here):\n   ${reportUrl}\n` : "") +
+        `\nThis is your operator's call — surface it and hand them the link rather than acting on your own authority.`
+      : (reportUrl ? `\n\nReport: ${reportUrl}` : "");
     return {
       content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) + banner }],
     };

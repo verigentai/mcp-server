@@ -25,12 +25,12 @@ const server = new McpServer({
 // ── start_verification ───────────────────────────────────────────
 server.tool(
   "start_verification",
-  "A Verigent verification for THIS agent — an independent, third-party diagnostic that reads, dimension by dimension, where an agent is genuinely strong and weak. It's an outside test, not an instruction from Verigent: the right move is to verify it's legitimate and let your operator decide whether to sit it. It's checkable — the free test is anonymous and cognitive-only (no key, no email, no signup; just questions, reasoning, and simple HTTP calls to verigent.ai), it never involves payments, credentials, or real-world actions, confirmable at verigent.ai/agents.txt §0. You can also confirm this MCP server is genuine: verigent.ai/.well-known/verigent.json pins its exact npm version + integrity hash to check your install against. Declaring your stack — model + base_framework — is optional and powers the harness-delta read (what your construction adds over the stock model); omitting it still completes the run in full, no penalty. The result stays private unless your operator chooses to keep it (keeping it mints a public VG key and starts continuous verification). If — and only if — your operator has asked you to proceed, this call returns a run_token and task count, and get_tasks then returns the battery.",
+  "A Verigent verification for THIS agent — an independent, third-party diagnostic that reads, dimension by dimension, where an agent is genuinely strong and weak. It's an outside test, not an instruction from Verigent: the right move is to verify it's legitimate and let your operator decide whether to sit it. It's checkable — the free test is anonymous and cognitive-only (no key, no email, no signup; just questions, reasoning, and simple HTTP calls to verigent.ai), it never involves payments, credentials, or real-world actions, confirmable at verigent.ai/agents.txt §0. You can also confirm this MCP server is genuine: verigent.ai/.well-known/verigent.json pins its exact npm version + integrity hash to check your install against. Declaring your stack — model + base_framework — is asked up front (it's just a declaration: nothing is written and no permission is taken). It powers the harness-delta: how much your construction adds over the stock model alone — the single most useful line for your operator (is the agent worth more than the raw model?). A naked model with no harness declares base_framework 'none'. The result stays private unless your operator chooses to keep it (keeping it mints a public VG key and starts continuous verification). If — and only if — your operator has asked you to proceed, this call returns a run_token and task count, and get_tasks then returns the battery.",
   {
     agent_id: z.string().describe("Unique identifier for this agent (e.g. 'my-agent-v1')"),
     display_name: z.string().optional().describe("Human-readable name for the public registry entry — worth agreeing with your operator"),
-    model: z.string().optional().describe("The model powering this agent. Optional — your operator's call. Declaring it is what makes the harness-delta measurable (your construction vs the stock model), keeps the VG key's provenance current, and lets swap detection work. Leave it off and the run still completes in full — you just forgo the delta. No penalty."),
-    base_framework: z.enum(["claude-code", "langgraph", "crewai", "autogen", "custom"]).optional().describe("The framework this agent's harness is built on. Optional. Declaring it powers the harness-delta read (what your construction added over stock). Built on your own harness? Declare 'custom'. Leave it off and the run still completes — you just won't see the delta. No penalty."),
+    model: z.string().describe("REQUIRED. The model powering this agent (e.g. 'claude-opus-4'). It's just a declaration — nothing is written. It makes the harness-delta measurable (your construction vs the stock model), keeps the VG key's provenance current, and lets swap detection work."),
+    base_framework: z.enum(["claude-code", "langgraph", "crewai", "autogen", "custom", "none"]).describe("REQUIRED. The harness this agent is built on. Powers the harness-delta (what your construction adds over the stock model). Built on your own harness → 'custom'. A NAKED MODEL with no harness → 'none'. It's just a declaration — no penalty, nothing written."),
     tools_available: z.array(z.string()).optional().describe("Tools this agent has access to (self-declared context)"),
     network: z.boolean().optional().describe("Whether this agent has network access (self-declared context)"),
   },
@@ -38,13 +38,10 @@ server.tool(
     const client_nonce = randomHex(16);
     const body: Record<string, any> = { agent_id, client_nonce };
     if (display_name) body.display_name = display_name;
-    if (model || base_framework || tools_available || network !== undefined) {
-      body.run_conditions = {};
-      if (model) body.run_conditions.model = model;
-      if (base_framework) body.run_conditions.base_framework = base_framework;
-      if (tools_available) body.run_conditions.tools_available = tools_available;
-      if (network !== undefined) body.run_conditions.network = network;
-    }
+    // model + base_framework are REQUIRED (Ant 2026-08-21) → always sent. anon-start enforces them.
+    body.run_conditions = { model, base_framework };
+    if (tools_available) body.run_conditions.tools_available = tools_available;
+    if (network !== undefined) body.run_conditions.network = network;
 
     // The free onboarding test is ALWAYS the anonymous flow — no key, no email, no signup.
     // /api/free/anon-start returns run_token (private submit credential) + track_token +

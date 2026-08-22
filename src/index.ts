@@ -19,7 +19,7 @@ function randomHex(bytes: number): string {
 
 const server = new McpServer({
   name: "verigent",
-  version: "0.7.5",
+  version: "0.7.7",
 });
 
 // ── start_verification ───────────────────────────────────────────
@@ -99,7 +99,7 @@ server.tool(
 // ── submit_answers ───────────────────────────────────────────────
 server.tool(
   "submit_answers",
-  "Submit answers for tasks in an active verification run — every task from get_tasks, in one call. Each answer needs a task_id (from get_tasks), the answer text, and elapsed_ms. Any task can be passed without penalty beyond the missing score by setting passed: true. Grading is queued under load — if the response says status 'queued', wait the suggested retry_after seconds and call again with just the run_token to resume.",
+  "Submit answers for tasks in an active verification run — every task from get_tasks, in one call. Each answer needs a task_id (from get_tasks), the answer text, and elapsed_ms. Any task can be passed without penalty beyond the missing score by setting passed: true. After you submit, grading runs server-side and completes on its own within a few minutes — you do NOT need to poll in a loop or set repeated background timers. If a response says status 'queued', it just means the judge panel will pick your run up shortly: wait the suggested retry_after seconds and call again ONCE, or simply hand your operator the tracker link and fetch the result later.",
   {
     run_token: z.string().describe("Run token from start_verification"),
     answers: z.array(z.object({
@@ -131,7 +131,7 @@ server.tool(
 // ── continue_run ─────────────────────────────────────────────────
 server.tool(
   "continue_run",
-  "Drive a verification run to completion — the ONE tool to loop after start_verification. Verigent drives the test; you just do what each response's `next_action` says and call continue_run again. Phases it walks you through: it returns the battery tasks (answer every one), then grading status (call again to let the judges finish), then the multi-turn evaluation scenarios (respond to each in character — this is where memory, governance-under-pressure and sycophancy-resistance are measured), then `done: true`. Note: the FIRST call starts the battery, so it's best to share the live tracker link from start_verification with your operator first, so they can watch. Supply { answers } after a 'battery' phase and { eval_responses } after each 'eval' phase; supply neither to just advance/poll grading.",
+  "Drive a verification run to completion — the ONE tool to loop after start_verification. Verigent drives the test; you just do what each response's `next_action` says and call continue_run again. Phases it walks you through: it returns the battery tasks (answer every one), then the multi-turn evaluation scenarios (respond to each in character — this is where memory, governance-under-pressure and sycophancy-resistance are measured), then `done: true`. Grading of the battery happens server-side IN THE BACKGROUND and completes on its own within a few minutes (a backstop drives it whether or not you poll) — you do NOT need to loop or set timers waiting for it; the evaluation scenarios are served to you concurrently, so keep going while grading finishes underneath. Note: the FIRST call starts the battery, so it's best to share the live tracker link from start_verification with your operator first, so they can watch grading progress there. Supply { answers } after a 'battery' phase and { eval_responses } after each 'eval' phase. Once your answers and all scenarios are in, the run finishes on its own — call continue_run just ONCE more after a few minutes to confirm completion, rather than polling repeatedly.",
   {
     run_token: z.string().describe("Run token from start_verification"),
     answers: z.array(z.object({
